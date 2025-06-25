@@ -14,8 +14,6 @@ supabase = create_client(url, key)
 
 def store_user_credentials(email, creds):
     
-    # Store using vault mechanism
-
     creds_bytes = json.dumps(creds).encode()
     
     encrypted_creds = base64.b64encode(encrypt(creds_bytes)).decode()

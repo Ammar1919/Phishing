@@ -1,3 +1,11 @@
+# custom files
+
+backend/finetuned_phish_model/
+backend/gmail/credentials.json
+backend/gmail/token.json
+backend/emails_dataset.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

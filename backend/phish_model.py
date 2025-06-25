@@ -26,7 +26,7 @@ def predict_email(email_text):
         "phishing_url": probs[1],
         "legitimate_url": probs[2],
         "phishing_url_alt": probs[3]
-    }g
+    }
 
     max_label = max(labels.items(), key=lambda x: x[1])
 
@@ -43,6 +43,10 @@ def eval_results(results):
         return 1
     else:
         return 0
+    
+def display_results(result):
+    print(f"Prediction: {result['prediction']}")
+    print(f"Confidence: {result['confidence']:.2%}")
 
 if __name__ == '__main__':
     email = """

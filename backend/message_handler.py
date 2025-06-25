@@ -10,15 +10,26 @@ import time
 import base64
 import json
 
+allowed_labels = ['POTENTIAL THREAT']
+
 def callback(message):
     print(f"Message received: {message.data}")
     email_address = retrieve_email(message.data)
-    payload = get_latest_email_payload(email_address)
+    creds_dict = get_user_credentials(email_address)
+    if not creds_dict:
+        raise Exception("No credentials stored for this user: ", email_address)
+    
+    creds = Credentials.from_authorized_user_info(creds_dict)
+    service = build('gmail', 'v1', credentials=creds)
+    payload = get_latest_email_payload(service)
     body = get_email_body(payload)
     if body['plain'] is not None:
         print(body['plain'])
         results = predict_email(body['plain'])
         display_results(results)
+
+    # perform label modification here
+
     message.ack()
 
 def retrieve_email(payload):
@@ -28,20 +39,13 @@ def retrieve_email(payload):
 
 ## Function to get email from db, construct creds, service, and retrieve latest email
 
-def get_latest_email_payload(email_address):
-    creds_dict = get_user_credentials(email_address)
-    if not creds_dict:
-        raise Exception("No credentials stored for this user: ", email_address)
-    
-    creds = Credentials.from_authorized_user_info(creds_dict)
-    service = build('gmail', 'v1', credentials=creds)
-
+def get_latest_email_payload(service):
     latest = service.users().messages().list(userId='me', maxResults=1).execute()
-    message_id = latest['messages'][0]['id']
-    message = service.users().messages().get(userId='me', id=message_id).execute()
-
     if not latest:
         raise Exception("No messages in this mailbox")
+
+    message_id = latest['messages'][0]['id']
+    message = service.users().messages().get(userId='me', id=message_id).execute()
 
     return message['payload']
 
@@ -65,11 +69,22 @@ def get_email_body(payload):
                 body['plain'] = decoded_data.decode('UTF-8')
     return body
 
-def labeller(results):
-    if results['all_probabilities']['legitimate_email'] < 0.6:
-        ### label the email as phishing - create custom label
+def label_manager(label_name, service):
+    if label_name not in allowed_labels:
+        raise Exception("Label not allowed")
+    labels_dict = service.users().labels().list().execute()
+    labels_list = labels_dict['labels']
+    exists = False
+    for label in labels_list:
+        if label['name'] == label_name:
+            exists = True
+            break
+    if exists == False:
+        # Create label - use another function
         pass
-    
+
+    # Modify the message - use another function
+
 if __name__ == "__main__":
 
     subscriber = pubsub_v1.SubscriberClient()
@@ -82,5 +97,18 @@ if __name__ == "__main__":
     while True:
         time.sleep(30)
 
-## add a label manager - risky email for < 50% confidence 
-## add further models for urgency or reminders 
+
+"""
+
+Add a label manager function or file
+Add further models for urgency, reminders, personal etc.
+
+Label Manager:
+e.g. POTENTIAL THREAT
+1. List all labels - Check if label exists. 
+    If so, modify message using label id and message id
+2. If label does not exist, create it using standardized label dict - must create
+3. modify message 
+
+
+"""

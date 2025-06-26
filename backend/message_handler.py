@@ -14,32 +14,34 @@ allowed_labels = ['POTENTIAL THREAT']
 
 def callback(message):
     print(f"Message received: {message.data}")
-    email_address = retrieve_email(message.data)
-    creds_dict = get_user_credentials(email_address)
-    if not creds_dict:
-        raise Exception("No credentials stored for this user: ", email_address)
-    
-    creds = Credentials.from_authorized_user_info(creds_dict)
-    service = build('gmail', 'v1', credentials=creds)
-    payload = get_latest_email_payload(service)
-    body = get_email_body(payload)
-    if body['plain'] is not None:
-        print(body['plain'])
-        results = predict_email(body['plain'])
-        display_results(results)
-
-    # perform label modification here
-
     message.ack()
+
+    try:
+        email_address = retrieve_email(message.data)
+        creds_dict = get_user_credentials(email_address)
+        if not creds_dict:
+            raise Exception("No credentials stored for this user: ", email_address)
+        
+        creds = Credentials.from_authorized_user_info(creds_dict)
+        service = build('gmail', 'v1', credentials=creds)
+        email_id = get_latest_email(service)['id']
+        payload = get_latest_email(service)['payload']
+        body = get_email_body(payload)
+        if body['plain'] is not None:
+            print(body['plain'])
+            results = predict_email(body['plain'])
+            display_results(results)
+
+        label_manager('POTENTIAL THREAT', service, email_id)
+    except Exception as e:
+        print("Email processing Exception: ", e)
 
 def retrieve_email(payload):
     notification_data = json.loads(payload)
     email = notification_data.get('emailAddress')
     return email
 
-## Function to get email from db, construct creds, service, and retrieve latest email
-
-def get_latest_email_payload(service):
+def get_latest_email(service):
     latest = service.users().messages().list(userId='me', maxResults=1).execute()
     if not latest:
         raise Exception("No messages in this mailbox")
@@ -47,7 +49,7 @@ def get_latest_email_payload(service):
     message_id = latest['messages'][0]['id']
     message = service.users().messages().get(userId='me', id=message_id).execute()
 
-    return message['payload']
+    return message
 
 def get_email_body(payload):
     body = {'body': None, 'plain': None, 'html': None}
@@ -69,21 +71,45 @@ def get_email_body(payload):
                 body['plain'] = decoded_data.decode('UTF-8')
     return body
 
-def label_manager(label_name, service):
+def label_manager(label_name, service, message_id):
     if label_name not in allowed_labels:
         raise Exception("Label not allowed")
-    labels_dict = service.users().labels().list().execute()
+    label_id = get_label_id_by_name(label_name, service)
+    if label_id == None:
+        label_id = create_label(label_name, service)
+
+    label_message(label_id, service, message_id)
+
+def get_label_id_by_name(label_name, service):
+    labels_dict = service.users().labels().list(userId='me').execute()
     labels_list = labels_dict['labels']
-    exists = False
     for label in labels_list:
         if label['name'] == label_name:
-            exists = True
-            break
-    if exists == False:
-        # Create label - use another function
-        pass
+            return label['id']
+    return None
 
-    # Modify the message - use another function
+def create_label(label_name, service):
+    label = service.users().labels().create(
+        userId='me',
+        body={
+            'labelListVisibility': 'labelShow',
+            'messageListVisibility': 'show',
+            'name': label_name
+        }
+    ).execute()
+    return label['id']
+
+def label_message(label_id, service, message_id):
+    result = service.users().messages().modify(
+        userId='me',
+        id=message_id,
+        body={
+            "addLabelIds": [
+                label_id
+            ]
+        }
+    ).execute()
+
 
 if __name__ == "__main__":
 

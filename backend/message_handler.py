@@ -24,8 +24,9 @@ def callback(message):
         
         creds = Credentials.from_authorized_user_info(creds_dict)
         service = build('gmail', 'v1', credentials=creds)
-        email_id = get_latest_email(service)['id']
-        payload = get_latest_email(service)['payload']
+        latest_email = get_latest_email(service)
+        email_id = latest_email['id']
+        payload = latest_email['payload']
         body = get_email_body(payload)
         if body['plain'] is not None:
             print(body['plain'])
@@ -128,13 +129,5 @@ if __name__ == "__main__":
 
 Add a label manager function or file
 Add further models for urgency, reminders, personal etc.
-
-Label Manager:
-e.g. POTENTIAL THREAT
-1. List all labels - Check if label exists. 
-    If so, modify message using label id and message id
-2. If label does not exist, create it using standardized label dict - must create
-3. modify message 
-
 
 """

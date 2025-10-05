@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from supa_db import get_user_credentials
+from db_utils.supa_db import get_user_credentials
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.cloud import pubsub_v1
 from config import PROJECT_ID, SUBSCRIPTION_ID
-from phish_model import predict_email, display_results
+from models.phish_model import predict_email, display_results
 import time
 import base64
 import json
@@ -25,15 +25,8 @@ def callback(message):
         creds = Credentials.from_authorized_user_info(creds_dict)
         service = build('gmail', 'v1', credentials=creds)
         latest_email = get_latest_email(service)
-        email_id = latest_email['id']
-        payload = latest_email['payload']
-        body = get_email_body(payload)
-        if body['plain'] is not None:
-            print(body['plain'])
-            results = predict_email(body['plain'])
-            display_results(results)
-
-        label_manager('POTENTIAL THREAT', service, email_id)
+        if latest_email is not None:
+            process_email(latest_email, service)
     except Exception as e:
         print("Email processing Exception: ", e)
 
@@ -50,9 +43,32 @@ def get_latest_email(service):
     message_id = latest['messages'][0]['id']
     message = service.users().messages().get(userId='me', id=message_id).execute()
 
+    print(message.get('labelIds', []))
+    labels = message.get('labelIds', [])
+    unwanted_labels = ['CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS', 'SPAM']
+    if any(label in labels for label in unwanted_labels):
+        print("Returning none")
+        return None
+
+    print("Returning the message")
     return message
 
+def process_email(latest_email, service):
+    """ Processes email by retrieving, analyzing, and labelling it"""
+
+    email_id = latest_email['id']
+    payload = latest_email['payload']
+    body = get_email_body(payload)
+    if body['plain'] is not None:
+        print(body['plain'])
+        results = predict_email(body['plain'])
+        display_results(results)
+
+    label_manager('SAFE', service, email_id)
+
 def get_email_body(payload):
+    """ Retrieves email body """
+
     body = {'body': None, 'plain': None, 'html': None}
     if 'body' in payload and 'data' in payload['body']:
         print("Using body")
@@ -73,8 +89,8 @@ def get_email_body(payload):
     return body
 
 def label_manager(label_name, service, message_id):
-    if label_name not in allowed_labels:
-        raise Exception("Label not allowed")
+    """ Retrieves label_id and labels the message """
+
     label_id = get_label_id_by_name(label_name, service)
     if label_id == None:
         label_id = create_label(label_name, service)
@@ -82,6 +98,8 @@ def label_manager(label_name, service, message_id):
     label_message(label_id, service, message_id)
 
 def get_label_id_by_name(label_name, service):
+    """ Retrieves label_id by label_name """
+
     labels_dict = service.users().labels().list(userId='me').execute()
     labels_list = labels_dict['labels']
     for label in labels_list:
@@ -90,6 +108,8 @@ def get_label_id_by_name(label_name, service):
     return None
 
 def create_label(label_name, service):
+    """ Creates a label with selected label_name """
+
     label = service.users().labels().create(
         userId='me',
         body={
@@ -101,6 +121,8 @@ def create_label(label_name, service):
     return label['id']
 
 def label_message(label_id, service, message_id):
+    """ Labels the message """
+    
     result = service.users().messages().modify(
         userId='me',
         id=message_id,
@@ -128,6 +150,7 @@ if __name__ == "__main__":
 """
 
 Add a label manager function or file
+ - Check labelling functionality, try personalization or design
 Add further models for urgency, reminders, personal etc.
 
 """

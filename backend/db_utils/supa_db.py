@@ -2,7 +2,7 @@ from supabase import create_client, Client
 import os
 import json
 from dotenv import load_dotenv
-from cryptography import encrypt, decrypt
+from db_utils.cryptography import encrypt, decrypt
 import base64
 
 load_dotenv()

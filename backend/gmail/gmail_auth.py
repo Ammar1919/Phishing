@@ -6,7 +6,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
-from supa_db import store_user_credentials
+from db_utils.supa_db import store_user_credentials
 
 SCOPES = ['https://mail.google.com/', 
           'https://www.googleapis.com/auth/gmail.modify',
@@ -73,7 +73,7 @@ async def auth_callback(request: Request):
     store_user_credentials(user_email, json.loads(creds.to_json()))
     
     request = {
-        'labelIds': ['CATEGORY_PRIMARY'],
+        'labelIds': ['INBOX'],
         'topicName': 'projects/phishing-451316/topics/gmailNotifs',
         'labelFilterBehavior': 'INCLUDE'
     }

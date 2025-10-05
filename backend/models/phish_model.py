@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from shared_funcs import display_results
 
 tokenizer = AutoTokenizer.from_pretrained("finetuned_phish_model")
 model = AutoModelForSequenceClassification.from_pretrained("finetuned_phish_model")
@@ -7,7 +8,7 @@ model = AutoModelForSequenceClassification.from_pretrained("finetuned_phish_mode
 #tokenizer = AutoTokenizer.from_pretrained("cybersectony/phishing-email-detection-distilbert_v2.4.1")
 #model = AutoModelForSequenceClassification.from_pretrained("cybersectony/phishing-email-detection-distilbert_v2.4.1")
 
-def predict_email(email_text):
+def predict_phish(email_text):
     inputs = tokenizer(
         email_text,
         return_tensors="pt",
@@ -43,20 +44,16 @@ def eval_results(results):
         return 1
     else:
         return 0
-    
-def display_results(result):
-    print(f"Prediction: {result['prediction']}")
-    print(f"Confidence: {result['confidence']:.2%}")
 
 if __name__ == '__main__':
     email = """
    Hello!
 
-Thanks for registering for the upcoming event. You can access your ticket here: http://eventbrite.com/platform/docs/events
+Thanks for registering for the upcoming event. You can access your ticket here: 
 Thank you,
 Events Team
             """
-    result = predict_email(email)
+    result = predict_phish(email)
     confidence = result["confidence"]
     print(f"Prediction: {result['prediction']}")
     print(f"Confidence: {result['confidence']:.2%}")

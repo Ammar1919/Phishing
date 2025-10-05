@@ -5,7 +5,9 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.cloud import pubsub_v1
 from config import PROJECT_ID, SUBSCRIPTION_ID
-from models.phish_model import predict_email, display_results
+from models.phish_model import predict_phish
+from models.job_model import predict_job
+from models.shared_funcs import display_results
 import time
 import base64
 import json
@@ -61,8 +63,9 @@ def process_email(latest_email, service):
     body = get_email_body(payload)
     if body['plain'] is not None:
         print(body['plain'])
-        results = predict_email(body['plain'])
-        display_results(results)
+        phish_results = predict_phish(body['plain'])
+        job_results = predict_job(body['plain'])
+        display_results([phish_results, job_results])
 
     label_manager('SAFE', service, email_id)
 
